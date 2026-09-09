@@ -1,246 +1,406 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Spiral Galaxy 3D Effect</title>
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    background: #05050a;
-    overflow: hidden;
-  }
-  canvas { display: block; }
-  .nav {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    display: flex;
-    align-items: center;
-    gap: 32px;
-    padding: 18px 32px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: rgba(255,255,255,0.85);
-    font-size: 14px;
-    letter-spacing: 0.2px;
-    z-index: 10;
-    pointer-events: none;
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spiral Galaxy 3D Effect</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #05050a;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    #info {
+      position: absolute;
+      bottom: 24px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.25);
+      font-size: 14px;
+      letter-spacing: 2px;
+      pointer-events: none;
+      text-shadow: 0 0 12px rgba(0,0,0,0.8);
+      z-index: 10;
+    }
+  </style>
 </head>
 <body>
+  <div id="info">✦ SPIRAL GALAXY ✦</div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-// ---------- Renderer / scene / camera ----------
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 0, 11);
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x05050a, 1);
-document.body.appendChild(renderer.domElement);
+  <script>
+    // -------------------------------------------------------------
+    // 1. SCENE, CAMERA, RENDERER
+    // -------------------------------------------------------------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x05050a);
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 1.2, 12);
+    camera.lookAt(0, 0, 0);
 
-// ---------- Soft circular sprite texture for glowing points ----------
-function makeSpriteTexture() {
-  const size = 128;
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const ctx = c.getContext('2d');
-  const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.2, 'rgba(255,255,255,0.9)');
-  grad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new THREE.CanvasTexture(c);
-  return tex;
-}
-const spriteTex = makeSpriteTexture();
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x05050a, 1);
+    document.body.appendChild(renderer.domElement);
 
-// ---------- Color palette ----------
-const PALETTE = [
-  new THREE.Color(0xffffff),
-  new THREE.Color(0xbed7ff),
-  new THREE.Color(0xffe1b4),
-  new THREE.Color(0xffbe82),
-];
-function pickColor() {
-  const r = Math.random();
-  if (r < 0.55) return PALETTE[0];
-  if (r < 0.80) return PALETTE[1];
-  if (r < 0.94) return PALETTE[2];
-  return PALETTE[3];
-}
-function gauss() {
-  let u = 0, v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
-function rand(a, b) { return a + Math.random() * (b - a); }
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 
-// ---------- Build the galaxy disc (local XY plane, thin Z jitter) ----------
-const ARMS = 2;
-const STARS_PER_ARM = 3500;
-const CORE_STARS = 900;
-const BG_STARS = 600;
-const ARM_TIGHTNESS = 0.55;
-const ARM_SPAN = 3.3 * Math.PI;
-const DISC_RADIUS = 4.6;
-const DISC_THICKNESS = 0.16;
-
-const positions = [];
-const colors = [];
-const sizes = [];
-
-function pushStar(x, y, z, color, size) {
-  positions.push(x, y, z);
-  colors.push(color.r, color.g, color.b);
-  sizes.push(size);
-}
-
-// Core bulge
-for (let i = 0; i < CORE_STARS; i++) {
-  const r = Math.abs(gauss()) * 0.55;
-  const theta = rand(0, Math.PI * 2);
-  const x = Math.cos(theta) * r;
-  const y = Math.sin(theta) * r;
-  const z = gauss() * DISC_THICKNESS * 1.4;
-  const col = Math.random() < 0.75 ? PALETTE[2] : PALETTE[0];
-  pushStar(x, y, z, col, rand(0.06, 0.22) * (1 - r / 1.2 + 0.3));
-}
-
-// Spiral arms
-for (let a = 0; a < ARMS; a++) {
-  const armOffset = (a / ARMS) * Math.PI * 2;
-  for (let i = 0; i < STARS_PER_ARM; i++) {
-    const t = Math.pow(Math.random(), 0.65);
-    const theta = t * ARM_SPAN;
-    let r = ARM_TIGHTNESS * Math.exp(theta * 0.26) * 0.45;
-    r = Math.min(r, DISC_RADIUS);
-
-    const scatter = gauss() * (0.16 + 0.06 * t);
-    const thetaJitter = scatter / Math.max(r, 0.3);
-    const finalTheta = theta + armOffset + thetaJitter;
-
-    const x = Math.cos(finalTheta) * r;
-    const y = Math.sin(finalTheta) * r;
-    const z = gauss() * DISC_THICKNESS * (0.5 + 0.5 * (1 - t));
-
-    const col = pickColor();
-    const size = rand(0.035, 0.11) * rand(0.8, 1.6);
-    pushStar(x, y, z, col, size);
-  }
-}
-
-// Faint distant background stars (wider, static field, slightly outside disc)
-for (let i = 0; i < BG_STARS; i++) {
-  const r = rand(DISC_RADIUS * 0.9, DISC_RADIUS * 2.2);
-  const theta = rand(0, Math.PI * 2);
-  const x = Math.cos(theta) * r;
-  const y = Math.sin(theta) * r;
-  const z = gauss() * 1.2;
-  pushStar(x, y, z, PALETTE[0], rand(0.02, 0.05));
-}
-
-const geometry = new THREE.BufferGeometry();
-geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
-
-// Custom shader material so each point can have its own size + glow color,
-// with additive blending for that luminous look.
-const material = new THREE.ShaderMaterial({
-  uniforms: {
-    pointTexture: { value: spriteTex },
-    uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
-  },
-  vertexShader: `
-    attribute float size;
-    varying vec3 vColor;
-    uniform float uPixelRatio;
-    void main() {
-      vColor = color;
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = size * 480.0 * uPixelRatio / -mvPosition.z;
-      gl_Position = projectionMatrix * mvPosition;
+    // -------------------------------------------------------------
+    // 2. TEXTURES
+    // -------------------------------------------------------------
+    function makeGlowTexture(size = 128) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const center = size / 2;
+      const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
+      gradient.addColorStop(0.0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.15, 'rgba(255,255,255,0.95)');
+      gradient.addColorStop(0.4, 'rgba(255,255,255,0.45)');
+      gradient.addColorStop(0.7, 'rgba(255,255,255,0.12)');
+      gradient.addColorStop(1.0, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      return new THREE.CanvasTexture(canvas);
     }
-  `,
-  fragmentShader: `
-    uniform sampler2D pointTexture;
-    varying vec3 vColor;
-    void main() {
-      vec4 tex = texture2D(pointTexture, gl_PointCoord);
-      gl_FragColor = vec4(vColor, 1.0) * tex;
+
+    function makeStarTexture(size = 32) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const center = size / 2;
+      const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
+      gradient.addColorStop(0.0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+      gradient.addColorStop(0.7, 'rgba(255,255,255,0.2)');
+      gradient.addColorStop(1.0, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      return new THREE.CanvasTexture(canvas);
     }
-  `,
-  vertexColors: true,
-  blending: THREE.AdditiveBlending,
-  depthWrite: false,
-  transparent: true
-});
 
-// ---------- Nested groups: spin (local swirl) inside tumble (viewing angle) ----------
-const tumbleGroup = new THREE.Group();
-const spinGroup = new THREE.Group();
-const points = new THREE.Points(geometry, material);
-spinGroup.add(points);
-tumbleGroup.add(spinGroup);
-scene.add(tumbleGroup);
+    const glowTexture = makeGlowTexture(128);
+    const starTexture = makeStarTexture(32);
 
-// initial tilt so it doesn't start perfectly flat-on (matches reference starting angle)
-tumbleGroup.rotation.x = 0.05;
-tumbleGroup.rotation.y = 0.0;
+    // -------------------------------------------------------------
+    // 3. COLOR PALETTE & HELPERS
+    // -------------------------------------------------------------
+    const palette = [
+      new THREE.Color(0xfff5e6), // warm white
+      new THREE.Color(0xc8e0ff), // ice blue
+      new THREE.Color(0xffd9b3), // peach
+      new THREE.Color(0xffb07c), // orange
+      new THREE.Color(0xd4bfff), // lavender
+    ];
 
-// Core glow sprite (soft bright blob at center)
-function makeCoreGlow() {
-  const spriteMaterial = new THREE.SpriteMaterial({
-    map: spriteTex,
-    color: 0xfff3e0,
-    blending: THREE.AdditiveBlending,
-    transparent: true,
-    depthWrite: false
-  });
-  const sprite = new THREE.Sprite(spriteMaterial);
-  sprite.scale.set(2.6, 2.6, 1);
-  return sprite;
-}
-const coreGlow = makeCoreGlow();
-spinGroup.add(coreGlow);
+    function pickColor() {
+      const r = Math.random();
+      if (r < 0.40) return palette[0];
+      if (r < 0.65) return palette[1];
+      if (r < 0.82) return palette[2];
+      if (r < 0.94) return palette[3];
+      return palette[4];
+    }
 
-// ---------- Animation: swirl the arms + slowly tumble the viewing axis ----------
-const clock = new THREE.Clock();
+    function gauss() {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
 
-function animate() {
-  requestAnimationFrame(animate);
-  const dt = clock.getDelta();
-  const t = clock.getElapsedTime();
+    function rand(a, b) { return a + Math.random() * (b - a); }
 
-  // arms swirl around the disc's own normal
-  spinGroup.rotation.z += dt * 0.05;
+    // -------------------------------------------------------------
+    // 4. BUILD THE GALAXY – MORE STARS, MORE EFFECTS
+    // -------------------------------------------------------------
+    const ARMS = 2;
+    const STARS_PER_ARM = 5200;      // more stars
+    const CORE_STARS = 1400;         // denser core
+    const BG_STARS = 900;            // more background
+    const ARM_TIGHTNESS = 0.5;
+    const ARM_SPAN = 3.6 * Math.PI;
+    const DISC_RADIUS = 4.8;
+    const DISC_THICKNESS = 0.18;
 
-  // slow tumble of the whole disc's orientation (gives the face-on <-> edge-on motion)
-  tumbleGroup.rotation.x = 0.05 + Math.sin(t * 0.11) * 0.55;
-  tumbleGroup.rotation.y += dt * 0.045;
+    const positions = [];
+    const colors = [];
+    const sizes = [];
 
-  // gentle breathing scale
-  const s = 1 + Math.sin(t * 0.15) * 0.02;
-  tumbleGroup.scale.set(s, s, s);
+    function pushStar(x, y, z, color, size) {
+      positions.push(x, y, z);
+      colors.push(color.r, color.g, color.b);
+      sizes.push(size);
+    }
 
-  renderer.render(scene, camera);
-}
-animate();
-</script>
+    // --- Core bulge (dense, warm) ---
+    for (let i = 0; i < CORE_STARS; i++) {
+      const r = Math.abs(gauss()) * 0.7;
+      const theta = rand(0, Math.PI * 2);
+      const x = Math.cos(theta) * r;
+      const y = Math.sin(theta) * r;
+      const z = gauss() * DISC_THICKNESS * 1.6;
+      const col = Math.random() < 0.7 ? palette[2] : palette[0];
+      const size = rand(0.07, 0.28) * (1 - r / 1.4 + 0.35);
+      pushStar(x, y, z, col, size);
+    }
+
+    // --- Spiral arms ---
+    for (let a = 0; a < ARMS; a++) {
+      const armOffset = (a / ARMS) * Math.PI * 2;
+      for (let i = 0; i < STARS_PER_ARM; i++) {
+        const t = Math.pow(Math.random(), 0.6);
+        const theta = t * ARM_SPAN;
+        let r = ARM_TIGHTNESS * Math.exp(theta * 0.28) * 0.42;
+        r = Math.min(r, DISC_RADIUS);
+
+        const scatter = gauss() * (0.18 + 0.08 * t);
+        const thetaJitter = scatter / Math.max(r, 0.3);
+        const finalTheta = theta + armOffset + thetaJitter;
+
+        const x = Math.cos(finalTheta) * r;
+        const y = Math.sin(finalTheta) * r;
+        const z = gauss() * DISC_THICKNESS * (0.4 + 0.6 * (1 - t));
+
+        const col = pickColor();
+        const size = rand(0.04, 0.14) * rand(0.7, 1.7);
+        pushStar(x, y, z, col, size);
+      }
+    }
+
+    // --- Additional diffuse halo (very faint, large radius) ---
+    for (let i = 0; i < 800; i++) {
+      const r = rand(DISC_RADIUS * 0.5, DISC_RADIUS * 1.8);
+      const theta = rand(0, Math.PI * 2);
+      const x = Math.cos(theta) * r;
+      const y = Math.sin(theta) * r;
+      const z = gauss() * 0.8;
+      const col = palette[0].clone().lerp(palette[1], Math.random() * 0.4);
+      pushStar(x, y, z, col, rand(0.02, 0.06));
+    }
+
+    // --- Faint distant background stars (wider field) ---
+    for (let i = 0; i < BG_STARS; i++) {
+      const r = rand(DISC_RADIUS * 0.9, DISC_RADIUS * 3.0);
+      const theta = rand(0, Math.PI * 2);
+      const x = Math.cos(theta) * r;
+      const y = Math.sin(theta) * r;
+      const z = gauss() * 1.8;
+      pushStar(x, y, z, palette[0], rand(0.015, 0.045));
+    }
+
+    // --- Build geometry ---
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+
+    // -------------------------------------------------------------
+    // 5. CUSTOM SHADER MATERIAL (ADDITIVE GLOW)
+    // -------------------------------------------------------------
+    const shaderMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        pointTexture: { value: starTexture },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+      },
+      vertexShader: `
+        attribute float size;
+        varying vec3 vColor;
+        uniform float uPixelRatio;
+        void main() {
+          vColor = color;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * 520.0 * uPixelRatio / -mvPosition.z;
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D pointTexture;
+        varying vec3 vColor;
+        void main() {
+          vec4 tex = texture2D(pointTexture, gl_PointCoord);
+          gl_FragColor = vec4(vColor, 1.0) * tex;
+        }
+      `,
+      vertexColors: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true
+    });
+
+    // -------------------------------------------------------------
+    // 6. NESTED GROUPS & EXTRA GLOW LAYERS
+    // -------------------------------------------------------------
+    const tumbleGroup = new THREE.Group();
+    const spinGroup = new THREE.Group();
+    const points = new THREE.Points(geometry, shaderMaterial);
+    spinGroup.add(points);
+    tumbleGroup.add(spinGroup);
+    scene.add(tumbleGroup);
+
+    // initial tilt
+    tumbleGroup.rotation.x = 0.08;
+    tumbleGroup.rotation.y = 0.3;
+
+    // --- Core glow (big soft sprite) ---
+    function createCoreGlow() {
+      const mat = new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: 0xffeedd,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false
+      });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(3.2, 3.2, 1);
+      return sprite;
+    }
+    const coreGlow = createCoreGlow();
+    spinGroup.add(coreGlow);
+
+    // --- Extra inner glow (smaller, hotter) ---
+    function createInnerGlow() {
+      const mat = new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: 0xffaa77,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false
+      });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(1.4, 1.4, 1);
+      return sprite;
+    }
+    const innerGlow = createInnerGlow();
+    spinGroup.add(innerGlow);
+
+    // --- Surrounding haze (very large faint glow) ---
+    function createHaze() {
+      const mat = new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: 0x88aaff,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        opacity: 0.15,
+        depthWrite: false
+      });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(7.5, 7.5, 1);
+      return sprite;
+    }
+    const haze = createHaze();
+    spinGroup.add(haze);
+
+    // --- Tiny sparkle stars (extra layer of tiny bright points) ---
+    const sparkleCount = 400;
+    const sparklePos = [];
+    const sparkleCol = [];
+    const sparkleSize = [];
+    for (let i = 0; i < sparkleCount; i++) {
+      const r = rand(0.2, DISC_RADIUS * 1.1);
+      const theta = rand(0, Math.PI * 2);
+      const x = Math.cos(theta) * r;
+      const y = Math.sin(theta) * r;
+      const z = gauss() * 0.3;
+      sparklePos.push(x, y, z);
+      const col = new THREE.Color(0xfff5e0).lerp(new THREE.Color(0xffcc88), Math.random());
+      sparkleCol.push(col.r, col.g, col.b);
+      sparkleSize.push(rand(0.08, 0.22));
+    }
+    const sparkleGeo = new THREE.BufferGeometry();
+    sparkleGeo.setAttribute('position', new THREE.Float32BufferAttribute(sparklePos, 3));
+    sparkleGeo.setAttribute('color', new THREE.Float32BufferAttribute(sparkleCol, 3));
+    sparkleGeo.setAttribute('size', new THREE.Float32BufferAttribute(sparkleSize, 1));
+
+    const sparkleMat = new THREE.ShaderMaterial({
+      uniforms: {
+        pointTexture: { value: glowTexture },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+      },
+      vertexShader: `
+        attribute float size;
+        varying vec3 vColor;
+        uniform float uPixelRatio;
+        void main() {
+          vColor = color;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * 480.0 * uPixelRatio / -mvPosition.z;
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D pointTexture;
+        varying vec3 vColor;
+        void main() {
+          vec4 tex = texture2D(pointTexture, gl_PointCoord);
+          gl_FragColor = vec4(vColor, 1.0) * tex;
+        }
+      `,
+      vertexColors: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true
+    });
+    const sparklePoints = new THREE.Points(sparkleGeo, sparkleMat);
+    spinGroup.add(sparklePoints);
+
+    // -------------------------------------------------------------
+    // 7. ANIMATION – MORE DYNAMIC MOTION
+    // -------------------------------------------------------------
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const elapsed = clock.getElapsedTime();
+
+      // Spin the galaxy (rotation around Z)
+      spinGroup.rotation.z += 0.018;
+
+      // Tumble: gentle rocking + rotation
+      tumbleGroup.rotation.x = 0.08 + Math.sin(elapsed * 0.09) * 0.65;
+      tumbleGroup.rotation.y += 0.008;
+
+      // Subtle breathing
+      const breathe = 1 + Math.sin(elapsed * 0.12) * 0.015;
+      tumbleGroup.scale.set(breathe, breathe, breathe);
+
+      // Core glow pulse
+      const pulse = 0.9 + Math.sin(elapsed * 0.5) * 0.1;
+      coreGlow.scale.set(3.2 * pulse, 3.2 * pulse, 1);
+      innerGlow.scale.set(1.4 * (1 + Math.sin(elapsed * 0.7) * 0.08), 1.4 * (1 + Math.sin(elapsed * 0.7) * 0.08), 1);
+
+      // Haze slow rotation (independent)
+      haze.material.opacity = 0.12 + Math.sin(elapsed * 0.08) * 0.04;
+
+      // Slight camera drift (adds dynamism)
+      camera.position.x = Math.sin(elapsed * 0.03) * 0.5;
+      camera.position.y = 1.2 + Math.sin(elapsed * 0.05) * 0.3;
+      camera.lookAt(0, 0, 0);
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // -------------------------------------------------------------
+    // 8. RESIZE HANDLER
+    // -------------------------------------------------------------
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
 </body>
 </html>
