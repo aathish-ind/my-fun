@@ -1,73 +1,218 @@
-<script>
-    // 1. Setup Scene, Camera, and Renderer
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenAI - Concept Website</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #000;
+            color: #fff;
+            overflow: hidden; /* Prevents scrollbars */
+        }
+
+        /* Navigation Bar */
+        nav {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            font-size: 14px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #d1d5db;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .nav-links a:hover { 
+            color: #fff; 
+        }
+
+        /* Buttons */
+        .login-btn {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .try-btn {
+            background: #fff;
+            color: #000 !important;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.2s ease;
+        }
+
+        .try-btn:hover {
+            background: #e5e7eb;
+        }
+
+        /* Floating Text Elements */
+        .side-text {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 7vw;
+            font-weight: 600;
+            letter-spacing: -0.04em;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .left-text { left: 40px; }
+        .right-text { right: 40px; }
+
+        .center-text {
+            position: absolute;
+            top: 75%; /* Lowered to match video */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5vw;
+            font-weight: 400;
+            z-index: 5;
+            pointer-events: none;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* Container for the 3D animation */
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav>
+        <div style="font-weight: 600; font-size: 20px;">OpenAI</div>
+        <div class="nav-links">
+            <a href="#">Research</a>
+            <a href="#">Products</a>
+            <a href="#">Business</a>
+            <a href="#">Developers</a>
+            <a href="#">Company</a>
+            <a href="#">Foundation</a>
+        </div>
+        <div class="nav-links">
+            <a href="#" class="login-btn">Log In ↗</a>
+            <a href="#" class="try-btn">Try ChatGPT ↗</a>
+        </div>
+    </nav>
+
+    <!-- Overlay Text -->
+    <div class="side-text left-text">GPT</div>
+    <div class="side-text right-text">ASTRA</div>
+    <div class="center-text">A new generation of intelligence</div>
+
+    <!-- 3D Environment -->
+    <div id="canvas-container"></div>
+
+    <!-- Load Three.js from a CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-    // 2. Create the Galaxy Particles
-    const particleCount = 15000;
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-
-    for (let i = 0; i < particleCount; i++) {
-        // Math to create a spiral galaxy shape
-        const i3 = i * 3;
-        const radius = Math.random() * 5;
-        const spinAngle = radius * 2.5; 
-        const branchAngle = ((i % 3) * Math.PI * 2) / 3; // 3 spiral arms
-
-        // Add random scatter to make it look like a dust cloud
-        const randomX = (Math.random() - 0.5) * 0.5;
-        const randomY = (Math.random() - 0.5) * 0.5;
-        const randomZ = (Math.random() - 0.5) * 0.5;
-
-        positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;     // x
-        positions[i3 + 1] = randomY;                                              // y (flat disc)
-        positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ; // z
-
-        // Make center brighter, outer edges dimmer
-        const mixedColor = new THREE.Color().setHSL(0.6, 0.2, 1 - (radius / 5));
-        colors[i3] = mixedColor.r;
-        colors[i3 + 1] = mixedColor.g;
-        colors[i3 + 2] = mixedColor.b;
-    }
-
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    // Material for the particles
-    const material = new THREE.PointsMaterial({
-        size: 0.02,
-        vertexColors: true,
-        blending: THREE.AdditiveBlending,
-        transparent: true
-    });
-
-    const particles = new THREE.Points(geometry, material);
-    // Tilt the galaxy so we look at it from an angle
-    particles.rotation.x = Math.PI * 0.2; 
-    scene.add(particles);
-
-    camera.position.z = 6;
-
-    // 3. Animation Loop
-    function animate() {
-        requestAnimationFrame(animate);
-        // Slowly rotate the entire galaxy
-        particles.rotation.z -= 0.002;
-        renderer.render(scene, camera);
-    }
-
-    animate();
-
-    // 4. Handle Window Resizing
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
+    <!-- 3D Animation Script -->
+    <script>
+        // 1. Setup Scene, Camera, and Renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        
         renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-</script>
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // 2. Create the Galaxy Particles
+        const particleCount = 20000; // Increased for a denser look
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const colors = new Float32Array(particleCount * 3);
+
+        for (let i = 0; i < particleCount; i++) {
+            // Math to create a spiral galaxy shape
+            const i3 = i * 3;
+            const radius = Math.random() * 4.5;
+            const spinAngle = radius * 3.0; // Tighter spiral
+            const branchAngle = ((i % 2) * Math.PI * 2) / 2; // 2 main spiral arms like the video
+
+            // Add random scatter to make it look like a dust cloud
+            const randomX = (Math.random() - 0.5) * 0.8;
+            const randomY = (Math.random() - 0.5) * 0.3; // Flatter on the Y axis
+            const randomZ = (Math.random() - 0.5) * 0.8;
+
+            positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;     
+            positions[i3 + 1] = randomY;                                              
+            positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ; 
+
+            // Color gradient (Bright white center fading to slight blue/grey edges)
+            const distanceFromCenter = Math.sqrt(positions[i3]**2 + positions[i3+2]**2);
+            const intensity = 1 - (distanceFromCenter / 5);
+            
+            colors[i3] = intensity;     // R
+            colors[i3 + 1] = intensity; // G
+            colors[i3 + 2] = intensity + 0.1; // B (Slightly blue tint)
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        // Material for the particles
+        const material = new THREE.PointsMaterial({
+            size: 0.015,
+            vertexColors: true,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        // Tilt the galaxy so we look at it from an angle
+        particles.rotation.x = Math.PI * 0.25; 
+        scene.add(particles);
+
+        camera.position.z = 5;
+
+        // 3. Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            // Slowly rotate the entire galaxy
+            particles.rotation.z -= 0.0015;
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 4. Handle Window Resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
