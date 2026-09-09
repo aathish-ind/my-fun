@@ -1,218 +1,251 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenAI - Concept Website</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        body {
-            background-color: #000;
-            color: #fff;
-            overflow: hidden; /* Prevents scrollbars */
-        }
-
-        /* Navigation Bar */
-        nav {
-            position: absolute;
-            top: 0;
-            width: 100%;
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 10;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 24px;
-            font-size: 14px;
-            align-items: center;
-        }
-
-        .nav-links a {
-            color: #d1d5db;
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-
-        .nav-links a:hover { 
-            color: #fff; 
-        }
-
-        /* Buttons */
-        .login-btn {
-            color: #fff;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .try-btn {
-            background: #fff;
-            color: #000 !important;
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: background 0.2s ease;
-        }
-
-        .try-btn:hover {
-            background: #e5e7eb;
-        }
-
-        /* Floating Text Elements */
-        .side-text {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 7vw;
-            font-weight: 600;
-            letter-spacing: -0.04em;
-            z-index: 5;
-            pointer-events: none;
-        }
-
-        .left-text { left: 40px; }
-        .right-text { right: 40px; }
-
-        .center-text {
-            position: absolute;
-            top: 75%; /* Lowered to match video */
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2.5vw;
-            font-weight: 400;
-            z-index: 5;
-            pointer-events: none;
-            text-align: center;
-            width: 100%;
-        }
-
-        /* Container for the 3D animation */
-        #canvas-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Spiral Galaxy 3D Effect</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #05050a;
+    overflow: hidden;
+  }
+  canvas { display: block; }
+  .nav {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    padding: 18px 32px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: rgba(255,255,255,0.85);
+    font-size: 14px;
+    letter-spacing: 0.2px;
+    z-index: 10;
+    pointer-events: none;
+  }
+</style>
 </head>
 <body>
+<div class="nav">
+  <span>Developers</span>
+  <span>Company</span>
+  <span>Foundation</span>
+</div>
 
-    <!-- Navigation -->
-    <nav>
-        <div style="font-weight: 600; font-size: 20px;">OpenAI</div>
-        <div class="nav-links">
-            <a href="#">Research</a>
-            <a href="#">Products</a>
-            <a href="#">Business</a>
-            <a href="#">Developers</a>
-            <a href="#">Company</a>
-            <a href="#">Foundation</a>
-        </div>
-        <div class="nav-links">
-            <a href="#" class="login-btn">Log In ↗</a>
-            <a href="#" class="try-btn">Try ChatGPT ↗</a>
-        </div>
-    </nav>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ---------- Renderer / scene / camera ----------
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 11);
 
-    <!-- Overlay Text -->
-    <div class="side-text left-text">GPT</div>
-    <div class="side-text right-text">ASTRA</div>
-    <div class="center-text">A new generation of intelligence</div>
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x05050a, 1);
+document.body.appendChild(renderer.domElement);
 
-    <!-- 3D Environment -->
-    <div id="canvas-container"></div>
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
-    <!-- Load Three.js from a CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
-    <!-- 3D Animation Script -->
-    <script>
-        // 1. Setup Scene, Camera, and Renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
+// ---------- Soft circular sprite texture for glowing points ----------
+function makeSpriteTexture() {
+  const size = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.2, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
+}
+const spriteTex = makeSpriteTexture();
 
-        // 2. Create the Galaxy Particles
-        const particleCount = 20000; // Increased for a denser look
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
+// ---------- Color palette ----------
+const PALETTE = [
+  new THREE.Color(0xffffff),
+  new THREE.Color(0xbed7ff),
+  new THREE.Color(0xffe1b4),
+  new THREE.Color(0xffbe82),
+];
+function pickColor() {
+  const r = Math.random();
+  if (r < 0.55) return PALETTE[0];
+  if (r < 0.80) return PALETTE[1];
+  if (r < 0.94) return PALETTE[2];
+  return PALETTE[3];
+}
+function gauss() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function rand(a, b) { return a + Math.random() * (b - a); }
 
-        for (let i = 0; i < particleCount; i++) {
-            // Math to create a spiral galaxy shape
-            const i3 = i * 3;
-            const radius = Math.random() * 4.5;
-            const spinAngle = radius * 3.0; // Tighter spiral
-            const branchAngle = ((i % 2) * Math.PI * 2) / 2; // 2 main spiral arms like the video
+// ---------- Build the galaxy disc (local XY plane, thin Z jitter) ----------
+const ARMS = 2;
+const STARS_PER_ARM = 3500;
+const CORE_STARS = 900;
+const BG_STARS = 600;
+const ARM_TIGHTNESS = 0.55;
+const ARM_SPAN = 3.3 * Math.PI;
+const DISC_RADIUS = 4.6;
+const DISC_THICKNESS = 0.16;
 
-            // Add random scatter to make it look like a dust cloud
-            const randomX = (Math.random() - 0.5) * 0.8;
-            const randomY = (Math.random() - 0.5) * 0.3; // Flatter on the Y axis
-            const randomZ = (Math.random() - 0.5) * 0.8;
+const positions = [];
+const colors = [];
+const sizes = [];
 
-            positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;     
-            positions[i3 + 1] = randomY;                                              
-            positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ; 
+function pushStar(x, y, z, color, size) {
+  positions.push(x, y, z);
+  colors.push(color.r, color.g, color.b);
+  sizes.push(size);
+}
 
-            // Color gradient (Bright white center fading to slight blue/grey edges)
-            const distanceFromCenter = Math.sqrt(positions[i3]**2 + positions[i3+2]**2);
-            const intensity = 1 - (distanceFromCenter / 5);
-            
-            colors[i3] = intensity;     // R
-            colors[i3 + 1] = intensity; // G
-            colors[i3 + 2] = intensity + 0.1; // B (Slightly blue tint)
-        }
+// Core bulge
+for (let i = 0; i < CORE_STARS; i++) {
+  const r = Math.abs(gauss()) * 0.55;
+  const theta = rand(0, Math.PI * 2);
+  const x = Math.cos(theta) * r;
+  const y = Math.sin(theta) * r;
+  const z = gauss() * DISC_THICKNESS * 1.4;
+  const col = Math.random() < 0.75 ? PALETTE[2] : PALETTE[0];
+  pushStar(x, y, z, col, rand(0.06, 0.22) * (1 - r / 1.2 + 0.3));
+}
 
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+// Spiral arms
+for (let a = 0; a < ARMS; a++) {
+  const armOffset = (a / ARMS) * Math.PI * 2;
+  for (let i = 0; i < STARS_PER_ARM; i++) {
+    const t = Math.pow(Math.random(), 0.65);
+    const theta = t * ARM_SPAN;
+    let r = ARM_TIGHTNESS * Math.exp(theta * 0.26) * 0.45;
+    r = Math.min(r, DISC_RADIUS);
 
-        // Material for the particles
-        const material = new THREE.PointsMaterial({
-            size: 0.015,
-            vertexColors: true,
-            blending: THREE.AdditiveBlending,
-            transparent: true,
-            opacity: 0.8
-        });
+    const scatter = gauss() * (0.16 + 0.06 * t);
+    const thetaJitter = scatter / Math.max(r, 0.3);
+    const finalTheta = theta + armOffset + thetaJitter;
 
-        const particles = new THREE.Points(geometry, material);
-        // Tilt the galaxy so we look at it from an angle
-        particles.rotation.x = Math.PI * 0.25; 
-        scene.add(particles);
+    const x = Math.cos(finalTheta) * r;
+    const y = Math.sin(finalTheta) * r;
+    const z = gauss() * DISC_THICKNESS * (0.5 + 0.5 * (1 - t));
 
-        camera.position.z = 5;
+    const col = pickColor();
+    const size = rand(0.035, 0.11) * rand(0.8, 1.6);
+    pushStar(x, y, z, col, size);
+  }
+}
 
-        // 3. Animation Loop
-        function animate() {
-            requestAnimationFrame(animate);
-            // Slowly rotate the entire galaxy
-            particles.rotation.z -= 0.0015;
-            renderer.render(scene, camera);
-        }
+// Faint distant background stars (wider, static field, slightly outside disc)
+for (let i = 0; i < BG_STARS; i++) {
+  const r = rand(DISC_RADIUS * 0.9, DISC_RADIUS * 2.2);
+  const theta = rand(0, Math.PI * 2);
+  const x = Math.cos(theta) * r;
+  const y = Math.sin(theta) * r;
+  const z = gauss() * 1.2;
+  pushStar(x, y, z, PALETTE[0], rand(0.02, 0.05));
+}
 
-        animate();
+const geometry = new THREE.BufferGeometry();
+geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
-        // 4. Handle Window Resizing
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
+// Custom shader material so each point can have its own size + glow color,
+// with additive blending for that luminous look.
+const material = new THREE.ShaderMaterial({
+  uniforms: {
+    pointTexture: { value: spriteTex },
+    uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+  },
+  vertexShader: `
+    attribute float size;
+    varying vec3 vColor;
+    uniform float uPixelRatio;
+    void main() {
+      vColor = color;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = size * 480.0 * uPixelRatio / -mvPosition.z;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D pointTexture;
+    varying vec3 vColor;
+    void main() {
+      vec4 tex = texture2D(pointTexture, gl_PointCoord);
+      gl_FragColor = vec4(vColor, 1.0) * tex;
+    }
+  `,
+  vertexColors: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  transparent: true
+});
+
+// ---------- Nested groups: spin (local swirl) inside tumble (viewing angle) ----------
+const tumbleGroup = new THREE.Group();
+const spinGroup = new THREE.Group();
+const points = new THREE.Points(geometry, material);
+spinGroup.add(points);
+tumbleGroup.add(spinGroup);
+scene.add(tumbleGroup);
+
+// initial tilt so it doesn't start perfectly flat-on (matches reference starting angle)
+tumbleGroup.rotation.x = 0.05;
+tumbleGroup.rotation.y = 0.0;
+
+// Core glow sprite (soft bright blob at center)
+function makeCoreGlow() {
+  const spriteMaterial = new THREE.SpriteMaterial({
+    map: spriteTex,
+    color: 0xfff3e0,
+    blending: THREE.AdditiveBlending,
+    transparent: true,
+    depthWrite: false
+  });
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.scale.set(2.6, 2.6, 1);
+  return sprite;
+}
+const coreGlow = makeCoreGlow();
+spinGroup.add(coreGlow);
+
+// ---------- Animation: swirl the arms + slowly tumble the viewing axis ----------
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  const t = clock.getElapsedTime();
+
+  // arms swirl around the disc's own normal
+  spinGroup.rotation.z += dt * 0.05;
+
+  // slow tumble of the whole disc's orientation (gives the face-on <-> edge-on motion)
+  tumbleGroup.rotation.x = 0.05 + Math.sin(t * 0.11) * 0.55;
+  tumbleGroup.rotation.y += dt * 0.045;
+
+  // gentle breathing scale
+  const s = 1 + Math.sin(t * 0.15) * 0.02;
+  tumbleGroup.scale.set(s, s, s);
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
 </body>
 </html>
